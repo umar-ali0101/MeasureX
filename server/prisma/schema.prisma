@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String // ADMIN | LMO | GATC | BUSINESS
+  phone        String?
+  orgName      String?
+  gstin        String?
+  address      String?
+  state        String?
+  district     String?
+  pincode      String?
+  status       String   @default("ACTIVE") // PENDING | ACTIVE | SUSPENDED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  instruments  Instrument[]
+  applications Application[]  @relation("Applicant")
+  assignments  Application[]  @relation("Assignee")
+  verifications Verification[]
+  alerts       Alert[]
+  documents    Document[]
+}
+
+model Instrument {
+  id            String   @id @default(cuid())
+  ownerId       String
+  owner         User     @relation(fields: [ownerId], references: [id])
+  name          String
+  category      String // Weighing | Length | Volume | Pressure | ...
+  make          String?
+  model         String?
+  serialNo      String   @unique
+  capacity      String?
+  leastCount    String?
+  accuracyClass String?
+  stampingYear  Int?
+  location      String?
+  state         String?
+  district      String?
+  status        String   @default("REGISTERED") // REGISTERED | VERIFIED | EXPIRED | REJECTED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  applications  Application[]
+  verifications Verification[]
+  alerts        Alert[]
+}
+
+model Application {
+  id             String    @id @default(cuid())
+  applicationNo  String    @unique
+  instrumentId   String
+  instrument     Instrument @relation(fields: [instrumentId], references: [id])
+  applicantId    String
+  applicant      User      @relation("Applicant", fields: [applicantId], references: [id])
+  type           String // NEW | REVERIFICATION
+  status         String    @default("SUBMITTED") // SUBMITTED | SCHEDULED | IN_PROGRESS | VERIFIED | REJECTED | CANCELLED
+  preferredDate  DateTime?
+  scheduledDate  DateTime?
+  assignedToId   String?
+  assignedTo     User?     @relation("Assignee", fields: [assignedToId], references: [id])
+  assignedToType String? // LMO | GATC
+  feeAmount      Float     @default(0)
+  paymentStatus  String    @default("PENDING") // PENDING | PAID
+  remarks        String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  verification   Verification?
+  documents      Document[]
+}
+
+model Verification {
+  id            String   @id @default(cuid())
+  applicationId String   @unique
+  application   Application @relation(fields: [applicationId], references: [id])
+  instrumentId  String
+  instrument    Instrument @relation(fields: [instrumentId], references: [id])
+  officerId     String
+  officer       User     @relation(fields: [officerId], references: [id])
+  observations  String?
+  result        String // PASS | FAIL
+  verifiedAt    DateTime @default(now())
+  nextDueDate   DateTime?
+  certificate   Certificate?
+}
+
+model Certificate {
+  id               String   @id @default(cuid())
+  certificateNo    String   @unique
+  verificationId   String   @unique
+  verification     Verification @relation(fields: [verificationId], references: [id])
+  issuedAt         DateTime @default(now())
+  validFrom        DateTime
+  validUntil       DateTime
+  qrData           String
+  verificationHash String
+  status           String   @default("VALID") // VALID | EXPIRED | REVOKED
+}
+
+model Alert {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  instrumentId String?
+  instrument   Instrument? @relation(fields: [instrumentId], references: [id])
+  type         String // EXPIRY | DUE | APPLICATION | SYSTEM
+  title        String
+  message      String
+  dueDate      DateTime?
+  isRead       Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+}
+
+model Document {
+  id            String   @id @default(cuid())
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id])
+  uploaderId    String
+  uploader      User     @relation(fields: [uploaderId], references: [id])
+  fileName      String
+  storedName    String
+  mimeType      String
+  size          Int
+  createdAt     DateTime @default(now())
+}
